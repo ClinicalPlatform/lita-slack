@@ -31,11 +31,11 @@ module Lita
         end
 
         def channels_list
-          call_api("channels.list")
+          conversations_list['channels'].select { |c| c["is_channel"] }
         end
 
         def groups_list
-          call_api("groups.list")
+          conversations_list['channels'].select { |c| c["is_group"] }
         end
 
         def mpim_list
@@ -43,7 +43,11 @@ module Lita
         end
 
         def im_list
-          call_api("im.list")
+          conversations_list['channels'].select { |c| c["is_im"] }
+        end
+
+        def members_list
+          users_list['members']
         end
 
         def send_attachments(room_or_user, attachments)
@@ -70,14 +74,14 @@ module Lita
         end
 
         def rtm_start
-          response_data = call_api("rtm.start")
+          response_data = call_api("rtm.connect")
 
           TeamData.new(
-            SlackIM.from_data_array(response_data["ims"]),
+            SlackIM.from_data_array(im_list),
             SlackUser.from_data(response_data["self"]),
-            SlackUser.from_data_array(response_data["users"]),
-            SlackChannel.from_data_array(response_data["channels"]) +
-              SlackChannel.from_data_array(response_data["groups"]),
+            SlackUser.from_data_array(members_list),
+            SlackChannel.from_data_array(channels_list) +
+              SlackChannel.from_data_array(groups_list),
             response_data["url"],
           )
         end
@@ -87,6 +91,14 @@ module Lita
         attr_reader :stubs
         attr_reader :config
         attr_reader :post_message_config
+
+        def conversations_list
+          call_api("conversations.list")
+        end
+
+        def users_list
+          call_api('users.list')
+        end
 
         def call_api(method, post_data = {})
           response = connection.post(
